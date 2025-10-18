@@ -1,3 +1,1 @@
-Simple LKM template communicating over sys_reboot.
-
-![test](test.png)
+An excuse to use that LKM template.
