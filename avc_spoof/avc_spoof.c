@@ -6,6 +6,7 @@
 #include <linux/kprobes.h>
 #include <linux/security.h>
 #include <linux/atomic.h>
+#include <linux/kallsyms.h>
 
 // require KPROBES when building as MODULE
 #ifdef MODULE
@@ -152,7 +153,7 @@ static struct kprobe sys_reboot_kp = {
 
 static int __init avc_spoof_init(void) 
 {
-	pr_info("avc_spoof/init: with magic: 0x%d\n", (int)DEF_MAGIC);
+	pr_info("avc_spoof/init: with magic: 0x%x\n", (int)DEF_MAGIC);
 
 	unsigned long addr = lookup_name("security_secctx_to_secid");
 	if (!addr) {
@@ -160,7 +161,19 @@ static int __init avc_spoof_init(void)
 		return -EAGAIN;
 	}
 
-	pr_info("avc_spoof/init: security_secctx_to_secid found on: 0x%lx\n", addr);
+	pr_info("avc_spoof/init: security_secctx_to_secid found on: 0x%lx\n", addr);	
+
+	// confirm symbol
+	char buf[64] = {0};
+	sprint_symbol(buf, addr);
+	buf[63] = '\0';
+
+	if (!!strncmp(buf, "security_secctx_to_secid", strlen("security_secctx_to_secid"))) {
+		pr_info("avc_spoof/init: wrong symbol!? %s found!\n", buf);
+		return -EAGAIN;
+	}
+
+	pr_info("avc_spoof/init: sprint_symbol 0x%lx: %s\n", addr, buf);
 	secctx_to_secid = (secctx_to_secid_fn)addr;
 
 	int ret = get_sid();
