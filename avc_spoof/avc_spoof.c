@@ -85,7 +85,7 @@ static int slow_avc_audit_pre_handler(struct kprobe *p, struct pt_regs *regs)
 	// if tsid is su, we just replace it
 	// unsure if its enough, but this is how it is aye?
 	if (tsid == su_sid) {
-		pr_info("avc_spoof/slow_avc_audit: replacing su_sid: %lu with kernel_sid: %lu\n", su_sid, kernel_sid);
+		pr_info("avc_spoof/slow_avc_audit: replacing su_sid: %u with kernel_sid: %u\n", su_sid, kernel_sid);
 		PT_REGS_PARM2(regs) = (u32)kernel_sid;
 	}
 
@@ -102,17 +102,17 @@ static int get_sid(void)
 	// dont load at all if we cant get sids
 	int err = security_secctx_to_secid("u:r:su:s0", strlen("u:r:su:s0"), &su_sid);
 	if (err) {
-		pr_info("avc_spoof/get_sid: su_sid not found!", su_sid);
+		pr_info("avc_spoof/get_sid: su_sid not found!\n");
 		return -1;
 	}
-	pr_info("avc_spoof/get_sid: su_sid: %lu", su_sid);
+	pr_info("avc_spoof/get_sid: su_sid: %u\n", su_sid);
 
 	err = security_secctx_to_secid("u:r:kernel:s0", strlen("u:r:kernel:s0"), &kernel_sid);
 	if (err) {
-		pr_info("avc_spoof/get_sid: kernel_sid not found!", su_sid);
+		pr_info("avc_spoof/get_sid: kernel_sid not found!\n");
 		return -1;
 	}
-	pr_info("avc_spoof/get_sid: kernel_sid: %lu", kernel_sid);
+	pr_info("avc_spoof/get_sid: kernel_sid: %u\n", kernel_sid);
 	return 0;
 }
 

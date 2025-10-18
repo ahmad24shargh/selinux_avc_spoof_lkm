@@ -1,0 +1,10 @@
+menu "AVC SPOOF"
+
+config SELINUX_AVC_SPOOF
+	tristate "AVC SPOOF"
+	default m
+	help
+	  a small demo of lkm_template.
+	  all this does is try spoof su sid on audit logs.
+
+endmenu
