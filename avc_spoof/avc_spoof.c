@@ -19,74 +19,15 @@
 
 #include "arch.h"
 
-// SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
-//		void __user *, arg)
-// lkm_handle_sys_reboot(magic1, magic2, cmd, arg);
-// PLAN
-// magic1 main magic
-// magic2 command
-// arg, data input
-
-#define DEF_MAGIC 0x999
-#define PAUSE_SPOOF 0
-#define CONTINUE_SPOOF 1
-
-struct basic_payload {
-	unsigned long reply_ptr;
-	char text[256];
-};
-
 static u32 su_sid;
 static u32 kernel_sid;
-static atomic_t disable_spoof = ATOMIC_INIT(0);
 
 // seems this isnt exported on some kernels
 typedef int (*secctx_to_secid_fn)(const char *secdata, u32 seclen, u32 *secid);
 static secctx_to_secid_fn secctx_to_secid = NULL;
 
-static int handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user *arg)
-{
-	if (magic1 != DEF_MAGIC)
-		return 0;
-
-	int ok = DEF_MAGIC; // we just write magic on reply
-
-	pr_info("avc_spoof: intercepted call! magic: 0x%d id: 0x%d\n", magic1, magic2);
-
-	if (magic2 == PAUSE_SPOOF) {
-		struct basic_payload basic = {0};
-		if (copy_from_user(&basic, arg, sizeof(struct basic_payload)))
-			return 0;
-
-		pr_info("avc_spoof: pausing selinux spoof\n");
-		atomic_set(&disable_spoof, 1);
-
-		if (copy_to_user((void __user *)basic.reply_ptr, &ok, sizeof(ok)))
-			return 0;
-	}
-
-	if (magic2 == CONTINUE_SPOOF) {
-		struct basic_payload basic = {0};
-		if (copy_from_user(&basic, arg, sizeof(struct basic_payload)))
-			return 0;
-
-		pr_info("avc_spoof: continue selinux spoof\n");
-		atomic_set(&disable_spoof, 0);
-
-		if (copy_to_user((void __user *)basic.reply_ptr, &ok, sizeof(ok)))
-			return 0;
-	}
-
-	return 0;
-}
-
 static int slow_avc_audit_pre_handler(struct kprobe *p, struct pt_regs *regs)
 {
-	// if tsid is su, we just replace it
-	// unsure if its enough, but this is how it is aye?
-	if (atomic_read(&disable_spoof))
-		return 0;
-
 	/* 
 	 * just pass both arg2 and arg3 to original handler
 	 * this removes all the headache.
@@ -118,20 +59,6 @@ static struct kprobe slow_avc_audit_kp = {
 	.pre_handler = slow_avc_audit_pre_handler,
 };
 
-// https://github.com/ilammy/ftrace-hook/blob/master/ftrace_hook.c
-static unsigned long lookup_name(const char *name)
-{
-	struct kprobe kp = { .symbol_name = name };
-	unsigned long retval;
-
-	if (register_kprobe(&kp) < 0) 
-		return 0;
-
-	retval = (unsigned long) kp.addr;
-	unregister_kprobe(&kp);
-	return retval;
-}
-
 static int get_sid(void)
 {
 	// dont load at all if we cant get sids
@@ -151,25 +78,23 @@ static int get_sid(void)
 	return 0;
 }
 
-static int sys_reboot_handler_pre(struct kprobe *p, struct pt_regs *regs)
+// https://github.com/ilammy/ftrace-hook/blob/master/ftrace_hook.c
+static unsigned long lookup_name(const char *name)
 {
-	struct pt_regs *real_regs = PT_REAL_REGS(regs);
-	int magic1 = (int)PT_REGS_PARM1(real_regs);
-	int magic2 = (int)PT_REGS_PARM2(real_regs);
-	int cmd = (int)PT_REGS_PARM3(real_regs);
-	void __user *arg = (void __user *)PT_REGS_SYSCALL_PARM4(real_regs);
+	struct kprobe kp = { .symbol_name = name };
+	unsigned long retval;
 
-	return handle_sys_reboot(magic1, magic2, cmd, arg);
+	if (register_kprobe(&kp) < 0) 
+		return 0;
+
+	retval = (unsigned long) kp.addr;
+	unregister_kprobe(&kp);
+	return retval;
 }
-
-static struct kprobe sys_reboot_kp = {
-	.symbol_name = SYS_REBOOT_SYMBOL,
-	.pre_handler = sys_reboot_handler_pre,
-};
 
 static int __init avc_spoof_init(void) 
 {
-	pr_info("avc_spoof/init: with magic: 0x%x\n", (int)DEF_MAGIC);
+	pr_info("avc_spoof/init: hello!\n");
 
 	unsigned long addr = lookup_name("security_secctx_to_secid");
 	if (!addr) {
@@ -183,7 +108,6 @@ static int __init avc_spoof_init(void)
 	char buf[64] = {0};
 	sprint_symbol(buf, addr);
 	buf[63] = '\0';
-
 	if (!!strncmp(buf, "security_secctx_to_secid", strlen("security_secctx_to_secid"))) {
 		pr_info("avc_spoof/init: wrong symbol!? %s found!\n", buf);
 		return -EAGAIN;
@@ -198,27 +122,11 @@ static int __init avc_spoof_init(void)
 		return -EAGAIN;
 	}
 
-	ret = register_kprobe(&sys_reboot_kp);
-	pr_info("avc_spoof/init: register sys_reboot kprobe: %d\n", ret);
-	if (ret) {
-		pr_info("avc_spoof/init: register sys_reboot fail, unloading!\n");
-		return -EAGAIN;
-	}
-
-	ret = register_kprobe(&slow_avc_audit_kp);
-	pr_info("avc_spoof/init: register slow_avc_audit_kp kprobe: %d\n", ret);
-	if (ret) {
-		unregister_kprobe(&sys_reboot_kp);
-		pr_info("avc_spoof/init: register slow_avc_audit fail, unloading!\n");
-		return -EAGAIN;
-	}
-
 	return 0;
 }
 
 static void __exit avc_spoof_exit(void) 
 {
-	unregister_kprobe(&sys_reboot_kp);
 	unregister_kprobe(&slow_avc_audit_kp);
 	pr_info("avc_spoof/exit: bye!\n");
 }
