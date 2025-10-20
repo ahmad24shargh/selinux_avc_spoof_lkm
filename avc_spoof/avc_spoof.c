@@ -80,32 +80,19 @@ static int handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __us
 	return 0;
 }
 
-// for < 4.17 int slow_avc_audit(u32 ssid, u32 tsid
-// for >= 4.17 int slow_avc_audit(struct selinux_state *state, u32 ssid, u32 tsid
-// for >= 6.4 int slow_avc_audit(u32 ssid, u32 tsid
-// so we need PARM3 for those inbetweeners
-
 static int slow_avc_audit_pre_handler(struct kprobe *p, struct pt_regs *regs)
 {
-	// if tsid is su, we just replace it
-	// unsure if its enough, but this is how it is aye?
+	u32 tsid = (u32)PT_REGS_PARM2(regs);
 
 	if (atomic_read(&disable_spoof))
 		return 0;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
-	u32 tsid = (u32)PT_REGS_PARM3(regs);
-	if (tsid == su_sid) {
-		pr_info("avc_spoof/slow_avc_audit: replacing su_sid: %u with kernel_sid: %u\n", su_sid, kernel_sid);
-		PT_REGS_PARM3(regs) = (u32)kernel_sid;
-	}
-#else
-	u32 tsid = (u32)PT_REGS_PARM2(regs);
+	// if tsid is su, we just replace it
+	// unsure if its enough, but this is how it is aye?
 	if (tsid == su_sid) {
 		pr_info("avc_spoof/slow_avc_audit: replacing su_sid: %u with kernel_sid: %u\n", su_sid, kernel_sid);
 		PT_REGS_PARM2(regs) = (u32)kernel_sid;
 	}
-#endif
 
 	return 0;
 }
