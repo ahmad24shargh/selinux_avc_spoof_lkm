@@ -74,7 +74,7 @@ jobs:
           cd android-kernel/common
           ls
           
-          cp ${GITHUB_WORKSPACE}/avc_spoof $drivers_dir/
+          cp -af ${GITHUB_WORKSPACE}/avc_spoof $drivers_dir/
           ls -lha $drivers_dir/avc_spoof
 
           sed -i 's/endmenu//g' $drivers_dir/Kconfig
