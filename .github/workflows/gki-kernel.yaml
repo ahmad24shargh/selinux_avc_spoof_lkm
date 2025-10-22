@@ -70,7 +70,7 @@ jobs:
           pwd
           
           cd common
-          mv ../../avc_spoof drivers/avc_spoof
+          mv ${GITHUB_WORKSPACE}/avc_spoof drivers/avc_spoof
           ls -lha drivers/avc_spoof
 
           sed -i 's/endmenu//g' drivers/Kconfig
