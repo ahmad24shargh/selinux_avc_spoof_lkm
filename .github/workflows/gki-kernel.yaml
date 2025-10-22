@@ -66,21 +66,19 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CC=clang
-          drivers_dir=$(find android-kernel -maxdepth 2 -type d -name drivers)
-          echo $drivers_dir
           
           pwd
           
           cd android-kernel/common
           ls
           
-          cp -af ${GITHUB_WORKSPACE}/avc_spoof $drivers_dir/
-          ls -lha $drivers_dir/avc_spoof
+          cp -af ${GITHUB_WORKSPACE}/avc_spoof drivers/
+          ls -lha drivers/avc_spoof
 
-          sed -i 's/endmenu//g' $drivers_dir/Kconfig
-          echo "source \"drivers/avc_spoof/Kconfig\"" >> $drivers_dir/Kconfig
-          echo "endmenu" >> $drivers_dir/Kconfig
-          echo 'obj-y += avc_spoof/' >> $drivers_dir/Makefile
+          sed -i 's/endmenu//g' drivers/Kconfig
+          echo "source \"drivers/avc_spoof/Kconfig\"" >> drivers/Kconfig
+          echo "endmenu" >> drivers/Kconfig
+          echo 'obj-y += avc_spoof/' >> drivers/Makefile
           
           # stop this exports check
           sed -i '/check_exports(mod)/d' scripts/mod/modpost.c
@@ -88,8 +86,8 @@ jobs:
           # force exports of these, just like ksu
           [ -f "android/abi_gki_aarch64" ] && echo "  register_kprobe" >> android/abi_gki_aarch64 && echo "  unregister_kprobe" >> android/abi_gki_aarch64
           
-          tail -n10 $drivers_dir/Kconfig
-          tail -n10 $drivers_dir/Makefile
+          tail -n10 drivers/Kconfig
+          tail -n10 drivers/Makefile
           
           echo $PATH ; pwd
           
