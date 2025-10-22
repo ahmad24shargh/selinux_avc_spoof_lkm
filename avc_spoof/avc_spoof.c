@@ -27,7 +27,7 @@
 // magic2 command
 // arg, data input
 
-#define DEF_MAGIC 0x999
+#define DEF_MAGIC 0x9123459
 #define PAUSE_SPOOF 0
 #define CONTINUE_SPOOF 1
 
