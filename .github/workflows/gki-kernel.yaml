@@ -72,6 +72,8 @@ jobs:
           pwd
           
           cd android-kernel/common
+          ls
+          
           cp ${GITHUB_WORKSPACE}/avc_spoof $drivers_dir/
           ls -lha $drivers_dir/avc_spoof
 
