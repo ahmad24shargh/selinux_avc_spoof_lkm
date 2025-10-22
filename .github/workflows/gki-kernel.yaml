@@ -60,16 +60,16 @@ jobs:
           ./repo sync -c -j $(nproc)
 
       - name: Prepare GKI
-        working-directory: android-kernel
+        #working-directory: android-kernel
         run: |
           export ARCH=arm64
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CC=clang
           
-          pwd
+          pwd && ls
           
-          cd common
+          cd android-kernel/common
           mv ${GITHUB_WORKSPACE}/avc_spoof drivers/avc_spoof
           ls -lha drivers/avc_spoof
 
